@@ -1,9 +1,8 @@
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
-from rest_framework.response import Response
 from .models import StockItem
 from .serializers import StockItemSerializer
-from bson import ObjectId
+from .utils import ApiResponse, ResponseMessages
 
 
 class StockItemViewSet(viewsets.ViewSet):
@@ -17,24 +16,38 @@ class StockItemViewSet(viewsets.ViewSet):
         """List all stock items for the authenticated user"""
         items = StockItem.objects(hunter_id=request.user.id)
         serializer = StockItemSerializer(items, many=True)
-        return Response(serializer.data)
+        return ApiResponse.success(
+            data=serializer.data,
+            message=ResponseMessages.STOCK_LIST_SUCCESS
+        )
     
     def create(self, request):
         """Create a new stock item"""
         serializer = StockItemSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return ApiResponse.created(
+                data=serializer.data,
+                message=ResponseMessages.STOCK_CREATED
+            )
+        return ApiResponse.validation_error(
+            errors=serializer.errors,
+            message=ResponseMessages.VALIDATION_ERROR
+        )
     
     def retrieve(self, request, pk=None):
         """Retrieve a specific stock item"""
         try:
             item = StockItem.objects.get(id=pk, hunter_id=request.user.id)
             serializer = StockItemSerializer(item)
-            return Response(serializer.data)
+            return ApiResponse.success(
+                data=serializer.data,
+                message=ResponseMessages.STOCK_LIST_SUCCESS
+            )
         except StockItem.DoesNotExist:
-            return Response({'error': 'Stock item not found'}, status=status.HTTP_404_NOT_FOUND)
+            return ApiResponse.not_found(
+                resource="Stock item"
+            )
     
     def update(self, request, pk=None):
         """Update a stock item"""
@@ -43,10 +56,16 @@ class StockItemViewSet(viewsets.ViewSet):
             serializer = StockItemSerializer(item, data=request.data, partial=False, context={'request': request})
             if serializer.is_valid():
                 serializer.save()
-                return Response(serializer.data)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                return ApiResponse.success(
+                    data=serializer.data,
+                    message=ResponseMessages.STOCK_UPDATED
+                )
+            return ApiResponse.validation_error(
+                errors=serializer.errors,
+                message=ResponseMessages.VALIDATION_ERROR
+            )
         except StockItem.DoesNotExist:
-            return Response({'error': 'Stock item not found'}, status=status.HTTP_404_NOT_FOUND)
+            return ApiResponse.not_found(resource="Stock item")
     
     def partial_update(self, request, pk=None):
         """Partially update a stock item"""
@@ -55,26 +74,37 @@ class StockItemViewSet(viewsets.ViewSet):
             serializer = StockItemSerializer(item, data=request.data, partial=True, context={'request': request})
             if serializer.is_valid():
                 serializer.save()
-                return Response(serializer.data)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                return ApiResponse.success(
+                    data=serializer.data,
+                    message=ResponseMessages.STOCK_UPDATED
+                )
+            return ApiResponse.validation_error(
+                errors=serializer.errors,
+                message=ResponseMessages.VALIDATION_ERROR
+            )
         except StockItem.DoesNotExist:
-            return Response({'error': 'Stock item not found'}, status=status.HTTP_404_NOT_FOUND)
+            return ApiResponse.not_found(resource="Stock item")
     
     def destroy(self, request, pk=None):
         """Delete a stock item"""
         try:
             item = StockItem.objects.get(id=pk, hunter_id=request.user.id)
             item.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
+            return ApiResponse.no_content(
+                message=ResponseMessages.STOCK_DELETED
+            )
         except StockItem.DoesNotExist:
-            return Response({'error': 'Stock item not found'}, status=status.HTTP_404_NOT_FOUND)
+            return ApiResponse.not_found(resource="Stock item")
     
     @action(detail=False, methods=['get'])
     def my_stock(self, request):
         """Get all stock items for the authenticated user"""
         items = StockItem.objects(hunter_id=request.user.id)
         serializer = StockItemSerializer(items, many=True)
-        return Response(serializer.data)
+        return ApiResponse.success(
+            data=serializer.data,
+            message=ResponseMessages.STOCK_LIST_SUCCESS
+        )
     
     @action(detail=True, methods=['post'])
     def increase_quantity(self, request, pk=None):
@@ -85,9 +115,12 @@ class StockItemViewSet(viewsets.ViewSet):
             item.quantity += amount
             item.save()
             serializer = StockItemSerializer(item)
-            return Response(serializer.data)
+            return ApiResponse.success(
+                data=serializer.data,
+                message=ResponseMessages.STOCK_QUANTITY_INCREASED
+            )
         except StockItem.DoesNotExist:
-            return Response({'error': 'Stock item not found'}, status=status.HTTP_404_NOT_FOUND)
+            return ApiResponse.not_found(resource="Stock item")
     
     @action(detail=True, methods=['post'])
     def decrease_quantity(self, request, pk=None):
@@ -98,8 +131,10 @@ class StockItemViewSet(viewsets.ViewSet):
             item.quantity = max(0, item.quantity - amount)
             item.save()
             serializer = StockItemSerializer(item)
-            return Response(serializer.data)
+            return ApiResponse.success(
+                data=serializer.data,
+                message=ResponseMessages.STOCK_QUANTITY_DECREASED
+            )
         except StockItem.DoesNotExist:
-            return Response({'error': 'Stock item not found'}, status=status.HTTP_404_NOT_FOUND)
-
+            return ApiResponse.not_found(resource="Stock item")
 
